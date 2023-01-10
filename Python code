@@ -1,0 +1,164 @@
+# import required libraries
+from bs4 import BeautifulSoup
+import requests
+import json
+import re
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+from tabulate import tabulate
+
+#................WEB SCRAPPING....................
+# url variable contains url entered by user
+url = input("Enter url:")
+url=url+'&page='
+totalPages= int(input('Enter Total Pages:'))
+
+CanvasData = [] #list including Canvas Data
+
+for i in range(totalPages):
+  pageNo=i+1
+  newUrl=url+str(pageNo)
+  # print(newUrl)
+  html_doc = requests.get(newUrl).text
+  data = json.loads(re.search(r'window\.pageData=({.*})', html_doc).group(1))
+  
+  #this loop will save information of each item
+  for item in data['mods']['listItems']:
+    CanvasData.append(item)
+ 
+ 
+ #............CREATING DATAFRAME & DATA WRANGLING..............
+ #DataFrame is created from list of items stored in Canvas Data
+ CanvasDataFrame= pd.DataFrame(CanvasData)
+ 
+ #top ten values of DataFrame are shown
+ CanvasDataFrame.head(10)
+ 
+ #Shape of DataFrame
+ CanvasDataFrame.shape
+ 
+ #showing column names in DataFrame
+ CanvasDataFrame.columns
+ 
+ #dropping unwanted coloumns
+ CanvasDataFrame.drop(columns=['mainSellerId','description','installment','brandId','icons','originalPrice', 
+ 'originalPriceShow', 'utLogMap','promotionId', 'priceShow','tItemType', 'cheapest_sku', 'sku',
+ 'skus','thumbs', 'restrictedAge', 'categories', 'clickTrace',
+ 'addToCartSkus','isAD', 'addToCart', 'adClickTrace'], inplace=True)
+ 
+ #checking Duplicates present in Data
+ print(sum(CanvasDataFrame.duplicated()))
+ 
+ #Checking Missing Values
+ CanvasDataFrame.isnull().sum()
+ 
+#Replacing Values and dealing with missing values:
+CanvasDataFrame['freeShipping'].replace([np.nan], 'No', inplace=True)
+CanvasDataFrame['freeShipping'].replace('Free Shipping', 'Yes', inplace=True)
+CanvasDataFrame['discount'].replace([np.nan], 0, inplace=True)
+CanvasDataFrame['review'].replace([np.nan], 0, inplace=True)
+CanvasDataFrame['ratingScore'].replace([np.nan], 0, inplace=True)
+NewData['freeShipping'].replace('Yes', 1, inplace=True)
+NewData['freeShipping'].replace('No', 0, inplace=True)
+
+#Checking if we have any missing value left
+CanvasDataFrame.isnull().sum()
+ 
+#..............STORING DATA IN CSV FILE.............
+CanvasDataFrame.to_csv('Canvas Data1.csv', index=False)
+
+#..............IMPORTING & READING CSV FILE..............
+NewData= pd.read_csv('Canvas Data1.csv')
+
+#Showing information of Data
+NewData.info()
+
+#.................Descriptive Analysis & Visualization.............
+NewData.describe()
+
+#.............BOX PLOTS.............
+#plotting box plot for given columns
+columns= ['price', 'ratingScore','review']
+for i in columns:
+  plt.figure()
+  NewData.boxplot(i)
+
+#.......HISTOGRAM PLOTS............
+#plotting histogram for iven columns
+columns= ['price', 'ratingScore','review']
+for i in columns:
+  plt.figure()
+  NewData.hist(i)
+
+#........HEAT MAP (CORRELATION)..........
+# Calculate the correlations between the different elements in the dataframe
+corr = NewData.corr()
+
+# Create the heat map
+sns.heatmap(corr, annot=True)
+
+# Show the plot
+plt.show()
+
+#......GROUPING DATA.......
+# Group the data by the 'ratingScore' column
+grouped_df = NewData.groupby('ratingScore')
+
+# Calculate the summary statistics for each group
+summary_stats = grouped_df.describe()
+
+# Display the summary statistics
+print(summary_stats)
+
+#histogram for grouped Data
+for ratingScore, group in grouped_df:
+    plt.hist(group['ratingScore'])
+
+
+#.............FILTERING DATA.............
+Rate= float(input('Enter Rating Score= '))
+
+# Filter the dataframe to include only rows where the 'ratingScore' column is 'Rate'
+filtered_df = NewData.where(NewData['ratingScore'] == Rate)
+
+# Drop Nan Values
+filtered_df.dropna(inplace=True)
+
+# Display the filtered dataframe
+print(filtered_df)
+
+#Shape of filtered dataframe
+filtered_df.shape
+
+#...............DISPLAYING DATA IN TABULAR FORM.....................
+# Print the dataframe as a table
+print(tabulate(filtered_df, headers='keys', tablefmt='orgtbl'))
+
+#Taking input from user to choose whether they want product with highest price or lowest
+
+choice=0 
+
+while choice!=1 and choice!=2:
+
+  choice= int(input("At %d Rating which product price you want \n1. Highest \n2.Lowest \n" %(Rate)))
+
+  if choice==1:
+   Price=filtered_df['price'].max()
+
+  elif choice==2:
+   Price=filtered_df['price'].min()
+
+  else:
+    print("Enter Valid input")
+
+
+PriceFiltered= filtered_df.where(filtered_df['price']== Price)
+
+PriceFiltered.dropna(inplace=True)
+
+# Print the dataframe as a table
+print(tabulate(LowestPrice, headers='keys', tablefmt='psql'))
+
+print(PriceFiltered)
